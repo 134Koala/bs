@@ -6,7 +6,7 @@ import os
 
 def process_data(symbol):
     # 读取原始数据
-    df = pd.read_csv(f"stock_data/{symbol}.csv")
+    df = pd.read_csv(f"bs_1/stock_data/{symbol}.csv")
     
     # 特征工程[11](@ref)
     df["MA5"] = df["收盘"].rolling(5).mean()
@@ -47,7 +47,7 @@ def process_data(symbol):
     print(f'val_lenth:',len(X_val))
     print(f'test_lenth:',len(X_test))
     # 保存处理结果
-    save_path = f"processing_data/{symbol}/"
+    save_path = f"bs_1/processing_data/{symbol}/"
     os.makedirs(save_path, exist_ok=True)
     np.save(f"{save_path}X_train.npy", X_train)
     np.save(f"{save_path}y_train.npy", y_train)

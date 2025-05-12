@@ -42,6 +42,7 @@ def predict_all_stocks():
             y_test = np.load(os.path.join(data_dir, "y_test.npy"))
             scaler = np.load(os.path.join(data_dir, "scaler.npy"), allow_pickle=True).item()
             dates_test = np.load(os.path.join(data_dir, "dates_test.npy"), allow_pickle=True)  # 修复日期加载
+            open_test = np.load(os.path.join(data_dir, "open_test.npy"))  # 加载开盘价
             n_features = X_test.shape[2]  # 新增行：从数据维度获取特征数
             # 加载模型
             model = load_model(model_path)
@@ -54,6 +55,9 @@ def predict_all_stocks():
             dummy_pred[:, -1] = predictions.flatten()
             pred_prices = scaler.inverse_transform(dummy_pred)[:, -1]
 
+            dummy_open = np.zeros((len(open_test), n_features))
+            dummy_open[:, -1] = open_test.flatten()  # 假设open是最后一个特征
+            open_prices = scaler.inverse_transform(dummy_open)[:, -1]
             # 修复实际值计算
             dummy_actual = np.zeros((len(y_test), n_features))
             dummy_actual[:, -1] = y_test.flatten()
@@ -62,7 +66,8 @@ def predict_all_stocks():
             results = pd.DataFrame({
                 "date": pd.to_datetime(dates_test),  # 确保转换为datetime类型
                 "actual": actual_prices,  # 使用修正后的实际值
-                "predicted": pred_prices
+                "predicted": pred_prices,
+                "open":open_prices
             })
             # 计算指标
             metrics = {
@@ -93,6 +98,5 @@ def predict_all_stocks():
     # 保存汇总指标
     pd.DataFrame(all_metrics).to_csv(os.path.join(RESULTS_PATH, "all_metrics.csv"), index=False)
     print("\n所有股票预测完成.汇总指标已保存")
-
-if __name__ == "__main__":
-    predict_all_stocks()
+# if __name__ == "__main__":
+#     predict_all_stocks()

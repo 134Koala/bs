@@ -38,7 +38,7 @@ def create_sequences(data, lookback, features, target):
 
 def process_data(symbol):
     # 读取并排序数据
-    df = pd.read_csv(f"stock_data/{symbol}.csv").sort_values("日期")
+    df = pd.read_csv(f"bs_1/stock_data/{symbol}.csv").sort_values("日期")
     
     # 按时间分割数据集（训练70%，验证15%，测试15%）
     train_idx = int(0.7 * len(df))
@@ -92,7 +92,7 @@ def process_data(symbol):
     X_test = scaler.transform(X_test.reshape(-1, len(features))).reshape(X_test.shape)
     
     # 保存结果
-    save_path = f"processing_data/{symbol}/"
+    save_path = f"bs_1/processing_data/{symbol}/"
     os.makedirs(save_path, exist_ok=True)
     np.save(f"{save_path}X_train.npy", X_train)
     np.save(f"{save_path}y_train.npy", y_train)
@@ -107,8 +107,11 @@ def process_data(symbol):
     np.save(f"{save_path}dates_val.npy", val_processed["日期"].values)
     # 新增：保存训练集日期数据（根据实际需要）
     np.save(f"{save_path}dates_train.npy", train_processed["日期"].values)
+    # 保存测试集的开盘价数据
+    np.save(f"{save_path}open_test.npy", test_processed["开盘"].values)
 
-if __name__ == "__main__":
-    symbols = [f.split(".")[0] for f in os.listdir("stock_data")]
-    for symbol in symbols:
-        process_data(symbol)
+# if __name__ == "__main__":
+#     symbols = [f.split(".")[0] for f in os.listdir("bs_1/stock_data")]
+#     for symbol in symbols:
+#         print(f"正在处理 {symbol}...")
+#         process_data(symbol)

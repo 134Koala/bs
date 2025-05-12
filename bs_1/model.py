@@ -40,7 +40,7 @@ def build_improved_model(input_shape):
 
 def train_model(symbol):
     # 加载数据
-    path = f"processing_data/{symbol}/"
+    path = f"bs_1/processing_data/{symbol}/"
     X_train = np.load(f"{path}X_train.npy")
     y_train = np.load(f"{path}y_train.npy")
     X_val = np.load(f"{path}X_val.npy")
@@ -53,7 +53,7 @@ def train_model(symbol):
     # 训练配置
     callbacks = [
         EarlyStopping(patience=10, restore_best_weights=True),
-        ModelCheckpoint(f"model/{symbol}_best.h5", save_best_only=True)
+        ModelCheckpoint(f"bs_1/model/{symbol}_best.h5", save_best_only=True)
     ]
     
     # 训练模型
@@ -65,9 +65,8 @@ def train_model(symbol):
         callbacks=callbacks,
         verbose=2
     )
-
-if __name__ == "__main__":
-    symbols = os.listdir("processing_data")
-    os.makedirs("model", exist_ok=True)
-    for symbol in symbols:
-        train_model(symbol)
+# if __name__ == "__main__":
+#     symbols = [f.split(".")[0] for f in os.listdir("bs_1/processing_data")]
+#     for symbol in symbols:
+#         print(f"正在处理 {symbol}...")
+#         train_model(symbol)
