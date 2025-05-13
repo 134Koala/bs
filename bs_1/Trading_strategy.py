@@ -8,16 +8,25 @@ from datetime import datetime
 class TradingStrategy:
     def __init__(self, results_dir='bs_1/pre_results', init_capital=1000000, transaction_cost=0.001):
         self.base_path = Path(results_dir)
-        self.init_capital = float(init_capital)  # 确保浮点数
+        self.init_capital = float(init_capital)
         self.trans_cost = transaction_cost
         self.strategy_params = {
-            'hold_threshold': 0.005,  # 更小的阈值
-            'stop_loss': -0.03,      # 更宽松的止损
-            'take_profit': 0.05,     # 更保守的止盈
-            'max_position_per_stock': 0.1,  # 更小的单股仓位
-            'min_position_days': 3    # 最小持仓天数
+            'hold_threshold': 0.008,  # 提高信号阈值
+            'stop_loss': -0.02,      # 收紧止损
+            'take_profit': 0.03,     # 降低止盈
+            'max_position_per_stock': 0.08,  # 降低单股仓位
+            'min_position_days': 5,   # 缩短最小持仓天数
+            'max_position_days': 20,  # 添加最大持仓天数
+            'volatility_factor': 0.5  # 波动率调整因子
         }
-        self.trade_log = []  # 交易日志
+        # self.strategy_params = {
+        #     'hold_threshold': 0.005,  # 更小的阈值
+        #     'stop_loss': -0.03,      # 更宽松的止损
+        #     'take_profit': 0.05,     # 更保守的止盈
+        #     'max_position_per_stock': 0.1,  # 更小的单股仓位
+        #     'min_position_days': 3    # 最小持仓天数
+        # }
+        self.trade_log = []
 
     def load_predictions(self):
         """加载所有股票的预测数据并合并"""
@@ -44,33 +53,49 @@ class TradingStrategy:
 
     def generate_signals(self, df):
         """改进的信号生成函数"""
-        # 检查必要列
-        required_cols = ['true_price', 'predicted_price']
-        if not all(col in df.columns for col in required_cols):
-            missing = [col for col in required_cols if col not in df.columns]
-            raise ValueError(f"缺少必要列: {missing}")
-        
         grouped = df.groupby('code')
         
         def process_group(group):
-            # 计算收益率
+            # 计算收益率和波动率
             group['return'] = group['true_price'].pct_change()
             group['pred_return'] = group['predicted_price'].pct_change()
+            rolling_std = group['return'].rolling(10).std()
+            group['volatility'] = rolling_std.bfill()  # 使用bfill()替代fillna(method='bfill')
             
-            # 使用收益率差作为信号基础
+            # 动态调整阈值
+            dynamic_threshold = self.strategy_params['hold_threshold'] * (
+                1 + self.strategy_params['volatility_factor'] * group['volatility'])
+            
+            # 改进的信号条件
+            buy_condition = (
+                (group['pred_return'] > dynamic_threshold) &
+                (group['return'].shift(1) <= self.strategy_params['take_profit'])
+            )
+            
+            # 先计算信号
             group['signal'] = np.select(
-                [
-                    (group['pred_return'] > self.strategy_params['hold_threshold']) & 
-                    (group['return'].shift(1) <= self.strategy_params['take_profit']),
-                    (group['return'] >= self.strategy_params['take_profit']) |
-                    (group['return'] <= self.strategy_params['stop_loss'])
-                ],
-                [1, -1],
+                [buy_condition],
+                [1],
                 default=0
             )
             
-            # 添加持仓天数计数器
-            group['hold_days'] = (group['signal'] == 1).groupby((group['signal'] != 1).cumsum()).cumsum()
+            # 然后计算持仓天数
+            group['hold_days'] = (group['signal'] == 1).groupby(
+                (group['signal'] != 1).cumsum()).cumsum()
+            
+            # 现在可以计算卖出信号
+            sell_condition = (
+                (group['return'] >= self.strategy_params['take_profit']) |
+                (group['return'] <= self.strategy_params['stop_loss']) |
+                (group['hold_days'] >= self.strategy_params['max_position_days'])
+            )
+            
+            # 更新信号列
+            group['signal'] = np.select(
+                [buy_condition, sell_condition],
+                [1, -1],
+                default=0
+            )
             
             return group
         
@@ -85,7 +110,10 @@ class TradingStrategy:
         if not all(col in df.columns for col in required_columns):
             missing = [col for col in required_cols if col not in df.columns]
             raise ValueError(f"DataFrame缺少必要列: {missing}")
-            
+        
+        # 添加波动率加权仓位分配
+        df['position_weight'] = 1 / (1 + df['volatility'])
+
         # 初始化资金和持仓
         df = df.copy()
         df['position'] = 0.0  # 持仓股数
@@ -226,8 +254,35 @@ class TradingStrategy:
         
         # 交易统计
         trade_df = pd.DataFrame(self.trade_log)
-        win_trades = trade_df[trade_df['action'] == 'sell']['value'] > trade_df[trade_df['action'] == 'sell']['price'] * trade_df[trade_df['action'] == 'sell']['shares']
-        win_rate = win_trades.mean() if not trade_df.empty else 0
+        
+        # 计算赢率 - 改进版
+        # 改进的胜率计算
+        if not trade_df.empty:
+            # 按股票代码分组，计算每笔交易的盈亏
+            trade_groups = trade_df.groupby('code')
+            profitable_trades = 0
+            total_paired_trades = 0
+
+            for code, group in trade_groups:
+                buys = group[group['action'] == 'buy']
+                sells = group[group['action'] == 'sell']
+                
+                # 确保买入和卖出记录数量匹配
+                min_trades = min(len(buys), len(sells))
+                if min_trades == 0:
+                    continue
+                    
+                # 计算最近的min_trades笔交易的盈亏
+                for i in range(min_trades):
+                    buy_value = buys.iloc[i]['value']
+                    sell_value = sells.iloc[i]['value']
+                    if sell_value > buy_value:
+                        profitable_trades += 1
+                    total_paired_trades += 1
+
+            win_rate = profitable_trades / total_paired_trades if total_paired_trades > 0 else 0
+        else:
+            win_rate = 0
         
         performance = {
             'Initial Capital': self.init_capital,
