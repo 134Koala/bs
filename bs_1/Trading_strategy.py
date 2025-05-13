@@ -3,170 +3,325 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+from datetime import datetime
 
 class TradingStrategy:
-    def __init__(self, results_dir='bs_1/results', init_capital=1000000, transaction_cost=0.001):
+    def __init__(self, results_dir='bs_1/pre_results', init_capital=1000000, transaction_cost=0.001):
         self.base_path = Path(results_dir)
         self.init_capital = float(init_capital)  # 确保浮点数
         self.trans_cost = transaction_cost
         self.strategy_params = {
-            'hold_threshold': 0.03,  # 预测值超过阈值买入
-            'stop_loss': -0.05,      # 最大回撤止损
-            'take_profit': 0.08      # 止盈线
+            'hold_threshold': 0.005,  # 更小的阈值
+            'stop_loss': -0.03,      # 更宽松的止损
+            'take_profit': 0.05,     # 更保守的止盈
+            'max_position_per_stock': 0.1,  # 更小的单股仓位
+            'min_position_days': 3    # 最小持仓天数
         }
+        self.trade_log = []  # 交易日志
 
     def load_predictions(self):
-        """加载所有股票的预测数据"""
+        """加载所有股票的预测数据并合并"""
         stock_dfs = []
         for stock_dir in self.base_path.iterdir():
             if stock_dir.is_dir():
                 csv_path = stock_dir / 'predictions.csv'
                 if csv_path.exists():
-                    df = pd.read_csv(csv_path, parse_dates=['date'], index_col='date')
-                    df['code'] = stock_dir.name  # 添加股票代码列
-                    stock_dfs.append(df)
-        return pd.concat(stock_dfs).sort_index()
-
+                    try:
+                        df = pd.read_csv(csv_path, parse_dates=['date'], index_col='date')
+                        df['code'] = stock_dir.name  # 添加股票代码列
+                        print(f"Loaded {stock_dir.name}, shape: {df.shape}")  # 调试输出
+                        stock_dfs.append(df)
+                    except Exception as e:
+                        print(f"Error loading {csv_path}: {str(e)}")
+                        continue
+        
+        if not stock_dfs:
+            raise ValueError("No valid prediction data found in the directory")
+            
+        combined = pd.concat(stock_dfs).sort_index()
+        print(f"Combined data shape: {combined.shape}")  # 调试输出
+        return combined
 
     def generate_signals(self, df):
-        df['cummax'] = df['actual'].cummax()
-        df['drawdown'] = (df['cummax'] - df['actual']) / df['cummax']
+        """改进的信号生成函数"""
+        # 检查必要列
+        required_cols = ['true_price', 'predicted_price']
+        if not all(col in df.columns for col in required_cols):
+            missing = [col for col in required_cols if col not in df.columns]
+            raise ValueError(f"缺少必要列: {missing}")
         
-        df['signal'] = np.select(
-            [
-                df['predicted'] > self.strategy_params['hold_threshold'],
-                df['drawdown'] >= abs(self.strategy_params['take_profit']),
-                df['drawdown'] >= abs(self.strategy_params['stop_loss'])
-            ],
-            [1, -1, -1],
-            default=0
-        )
-        return df
+        grouped = df.groupby('code')
+        
+        def process_group(group):
+            # 计算收益率
+            group['return'] = group['true_price'].pct_change()
+            group['pred_return'] = group['predicted_price'].pct_change()
+            
+            # 使用收益率差作为信号基础
+            group['signal'] = np.select(
+                [
+                    (group['pred_return'] > self.strategy_params['hold_threshold']) & 
+                    (group['return'].shift(1) <= self.strategy_params['take_profit']),
+                    (group['return'] >= self.strategy_params['take_profit']) |
+                    (group['return'] <= self.strategy_params['stop_loss'])
+                ],
+                [1, -1],
+                default=0
+            )
+            
+            # 添加持仓天数计数器
+            group['hold_days'] = (group['signal'] == 1).groupby((group['signal'] != 1).cumsum()).cumsum()
+            
+            return group
+        
+        result = grouped.apply(process_group, include_groups=False)
+        result['code'] = result.index.get_level_values('code')
+        return result.reset_index(level='code', drop=True)
 
     def backtest_strategy(self, df):
+        """共享资金池的回测策略"""
+        # 检查必要列是否存在
+        required_columns = ['code', 'signal', 'open', 'true_price', 'hold_days']
+        if not all(col in df.columns for col in required_columns):
+            missing = [col for col in required_cols if col not in df.columns]
+            raise ValueError(f"DataFrame缺少必要列: {missing}")
+            
+        # 初始化资金和持仓
         df = df.copy()
-        df['position'] = 0.0
-        df['cash'] = float(self.init_capital)
-        df['total'] = float(self.init_capital)
+        df['position'] = 0.0  # 持仓股数
+        df['cash'] = self.init_capital  # 初始资金
+        df['total'] = self.init_capital  # 总资产
+        df['trade'] = ''  # 交易记录
         
-        current_position = 0.0
-        for i in range(1, len(df)):
-            current_price = df.iloc[i]['open']  # 假设数据包含开盘价
+        # 按日期分组处理
+        dates = df.index.unique().sort_values()
+        
+        # 持仓字典：{股票代码: {'shares': 持仓股数, 'entry_date': 买入日期}}
+        positions = {}
+        cash = self.init_capital
+        
+        for date in dates:
+            daily_data = df.loc[date]
             
-            # 交易决策基于前一天信号
-            prev_signal = df.iloc[i-1]['signal']
+            # 如果是单只股票的数据，转换为DataFrame格式
+            if isinstance(daily_data, pd.Series):
+                daily_data = pd.DataFrame([daily_data])
             
-            if prev_signal != 0:
-                if prev_signal == 1 and current_position == 0:  # 买入
-                    available_cash = df.iloc[i-1]['cash']
-                    trade_shares = available_cash / current_price
+            # 先处理卖出信号
+            for _, row in daily_data.iterrows():
+                stock_code = row['code']
+                signal = row['signal']
+                current_price = row['open']
+                hold_days = row['hold_days']
+                
+                # 卖出条件：收到卖出信号或达到最小持仓天数
+                if stock_code in positions:
+                    position_info = positions[stock_code]
+                    sell_condition = (
+                        signal == -1 or 
+                        (hold_days >= self.strategy_params['min_position_days'] and 
+                         signal != 1)
+                    )
+                    
+                    if sell_condition and position_info['shares'] > 0:
+                        # 卖出持仓
+                        trade_value = position_info['shares'] * current_price
+                        cost = trade_value * self.trans_cost
+                        cash += (trade_value - cost)
+                        
+                        # 记录交易
+                        self.trade_log.append({
+                            'date': date,
+                            'code': stock_code,
+                            'action': 'sell',
+                            'price': current_price,
+                            'shares': position_info['shares'],
+                            'value': trade_value,
+                            'cost': cost,
+                            'hold_days': (date - position_info['entry_date']).days
+                        })
+                        
+                        positions[stock_code]['shares'] = 0.0
+            
+            # 再处理买入信号
+            buy_candidates = daily_data[
+                (daily_data['signal'] == 1) & 
+                (~daily_data['code'].isin([k for k, v in positions.items() if v['shares'] > 0]))
+            ]
+            
+            if not buy_candidates.empty:
+                # 计算可用资金（考虑最大仓位限制）
+                available_cash = cash * self.strategy_params['max_position_per_stock']
+                
+                # 平均分配资金给所有符合条件的股票
+                per_stock_cash = available_cash / len(buy_candidates)
+                
+                for _, row in buy_candidates.iterrows():
+                    stock_code = row['code']
+                    current_price = row['open']
+                    
+                    # 计算可买入股数
+                    trade_shares = per_stock_cash / current_price
                     cost = trade_shares * current_price * self.trans_cost
-                    current_position = trade_shares
-                    df.iat[i, df.columns.get_loc('cash')] = available_cash - cost
                     
-                elif prev_signal == -1 and current_position > 0:  # 卖出
-                    trade_value = current_position * current_price
-                    cost = trade_value * self.trans_cost
-                    df.iat[i, df.columns.get_loc('cash')] += (trade_value - cost)
-                    current_position = 0.0
+                    # 更新持仓和现金
+                    positions[stock_code] = {
+                        'shares': trade_shares,
+                        'entry_date': date
+                    }
+                    cash -= (trade_shares * current_price + cost)
                     
-            # 更新市值
-            df.iat[i, df.columns.get_loc('position')] = current_position
-            df.iat[i, df.columns.get_loc('total')] = current_position * current_price + df.iat[i, df.columns.get_loc('cash')]
+                    # 记录交易
+                    self.trade_log.append({
+                        'date': date,
+                        'code': stock_code,
+                        'action': 'buy',
+                        'price': current_price,
+                        'shares': trade_shares,
+                        'value': trade_shares * current_price,
+                        'cost': cost,
+                        'hold_days': 0
+                    })
+            
+            # 计算当前总资产
+            total_value = cash
+            for stock_code, pos_info in positions.items():
+                if pos_info['shares'] > 0:
+                    # 检查该股票在当天是否有数据
+                    stock_data = daily_data[daily_data['code'] == stock_code]
+                    if not stock_data.empty:
+                        stock_price = stock_data['open'].values[0]
+                        total_value += pos_info['shares'] * stock_price
+            
+            # 更新DataFrame
+            for stock_code in daily_data['code'].unique():
+                mask = (df.index == date) & (df['code'] == stock_code)
+                if stock_code in positions:
+                    df.loc[mask, 'position'] = positions[stock_code]['shares']
+                df.loc[mask, 'cash'] = cash
+                df.loc[mask, 'total'] = total_value
         
         return df
 
     def analyze_performance(self, df):
         """绩效分析"""
-        df['returns'] = df['total'].pct_change()
+        # 按日期去重（因为每只股票在同一天都有相同的总资产值）
+        daily_totals = df[~df.index.duplicated(keep='first')]['total']
+        
+        returns = daily_totals.pct_change().fillna(0)
         
         # 计算累计收益
-        cumulative_return = df['total'].iloc[-1] / self.init_capital - 1
+        cumulative_return = daily_totals.iloc[-1] / self.init_capital - 1
         
         # 年化收益率
-        annualized_return = (1 + cumulative_return)**(252/len(df)) - 1
+        annualized_return = (1 + cumulative_return)**(252/len(daily_totals)) - 1
         
         # 夏普比率（假设无风险利率为0）
-        sharpe_ratio = df['returns'].mean() / df['returns'].std() * np.sqrt(252)
+        sharpe_ratio = returns.mean() / returns.std() * np.sqrt(252) if returns.std() != 0 else 0
+        
+        # 最大回撤
+        cummax = daily_totals.cummax()
+        drawdown = (cummax - daily_totals) / cummax
+        max_drawdown = drawdown.max()
+        
+        # 交易统计
+        trade_df = pd.DataFrame(self.trade_log)
+        win_trades = trade_df[trade_df['action'] == 'sell']['value'] > trade_df[trade_df['action'] == 'sell']['price'] * trade_df[trade_df['action'] == 'sell']['shares']
+        win_rate = win_trades.mean() if not trade_df.empty else 0
         
         performance = {
+            'Initial Capital': self.init_capital,
+            'Final Value': daily_totals.iloc[-1],
             'Total Return': cumulative_return,
             'Annualized Return': annualized_return,
-            'Max Drawdown': (df['total'].cummax() - df['total']).max() / df['total'].cummax().max(),
+            'Max Drawdown': max_drawdown,
             'Sharpe Ratio': sharpe_ratio,
-            'Win Rate': len(df[df['returns'] > 0]) / len(df)
+            'Win Rate': win_rate,
+            'Total Trades': len(self.trade_log),
+            'Avg Hold Days': trade_df[trade_df['action'] == 'sell']['hold_days'].mean() if not trade_df.empty else 0
         }
         return performance
 
-    def plot_results(self, df, stock_code):
-        save_dir = self.base_path / stock_code
-        save_dir.mkdir(parents=True, exist_ok=True)
-        # ...其余绘图代码不变...3
+    def plot_results(self, df):
         """可视化结果"""
-        plt.figure(figsize=(14,7))
-        plt.plot(df['total'], label='Strategy')
-        plt.plot(df['actual'] / df['actual'].iloc[0] * self.init_capital, label='Buy & Hold')
-        plt.title(f'Trading Performance - {stock_code}')
+        save_dir = self.base_path / 'shared_pool'
+        save_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Get unique daily totals
+        daily_totals = df[~df.index.duplicated(keep='first')]['total']
+        
+        plt.figure(figsize=(14, 7))
+        plt.plot(daily_totals.index, daily_totals.values, label='Strategy')
+        
+        # Calculate and plot benchmark
+        grouped = df.groupby('code')
+        benchmark = pd.DataFrame(index=df.index.unique().sort_values())
+        
+        for name, group in grouped:
+            benchmark[name] = group['true_price'] / group['true_price'].iloc[0] * (self.init_capital / len(grouped))
+        
+        benchmark['total'] = benchmark.sum(axis=1)
+        plt.plot(benchmark.index, benchmark['total'].values, label='Equal Weight Benchmark')
+        
+        plt.title('Shared Pool Trading Performance')
+        plt.xlabel('Date')
+        plt.ylabel('Portfolio Value')
         plt.legend()
         plt.grid(True)
-        plt.savefig(save_dir/'strategy_performance.png')
+        plt.tight_layout()
+        plt.savefig(save_dir/'strategy_performance.png', dpi=300)
         plt.close()
+        
+        # 保存交易日志
+        if self.trade_log:
+            trade_df = pd.DataFrame(self.trade_log)
+            trade_df.to_csv(save_dir/'trade_log.csv', index=False)
 
     def run(self):
         """执行完整策略测试"""
-        all_performance = []
-        
-        # 初始化列名模板（确保始终包含必要字段）
-        column_template = {
-            'Stock': '',
-            'Total Return': np.nan,
-            'Annualized Return': np.nan,
-            'Max Drawdown': np.nan,
-            'Sharpe Ratio': np.nan,
-            'Win Rate': np.nan
-        }
-
-        for stock_dir in self.base_path.iterdir():
-            if stock_dir.is_dir():
-                stock_code = stock_dir.name
-                perf = column_template.copy()
-                perf['Stock'] = stock_code
-                
-                try:
-                    # 加载数据
-                    df = pd.read_csv(stock_dir/'predictions.csv', parse_dates=['date'], index_col='date')
-                    
-                    # 策略执行
-                    df = self.generate_signals(df)
-                    df = self.backtest_strategy(df)
-                    
-                    # 绩效分析
-                    calculated_perf = self.analyze_performance(df)
-                    perf.update(calculated_perf)  # 更新计算结果
-                    
-                    # 保存结果
-                    df.to_csv(stock_dir/'strategy_results.csv')
-                    self.plot_results(df, stock_code)
-                    
-                except Exception as e:
-                    print(f"股票{stock_code}回测失败: {str(e)}")
-                    perf['Error'] = str(e)  # 记录错误信息
-                    
-                all_performance.append(perf)
-
-        # 生成汇总报告
-        summary_df = pd.DataFrame(all_performance)
-        summary_df.to_csv(self.base_path/'strategy_summary.csv')
-        
-        # 打印前检查数据有效性
-        if not summary_df.empty:
-            print("策略回测完成，关键指标：")
-            print(summary_df[['Stock', 'Total Return', 'Sharpe Ratio', 'Max Drawdown']])
-        else:
-            print("警告：没有成功回测的股票！")
-        
-        return summary_df
+        try:
+            # 加载所有股票数据
+            print("Loading prediction data...")
+            all_data = self.load_predictions()
+            
+            # 生成交易信号
+            print("Generating trading signals...")
+            all_data = self.generate_signals(all_data)
+            
+            # 执行回测
+            print("Running backtest...")
+            results = self.backtest_strategy(all_data)
+            
+            # 保存结果
+            save_dir = self.base_path / 'shared_pool'
+            save_dir.mkdir(parents=True, exist_ok=True)
+            results.to_csv(save_dir/'strategy_results.csv')
+            
+            # 绩效分析
+            print("Analyzing performance...")
+            performance = self.analyze_performance(results)
+            
+            # 可视化
+            print("Generating plots...")
+            self.plot_results(results)
+            
+            # 打印结果
+            print("\n共享资金池策略回测完成，关键指标：")
+            for k, v in performance.items():
+                if isinstance(v, float):
+                    print(f"{k:<20}: {v:.4f}")
+                else:
+                    print(f"{k:<20}: {v}")
+            
+            return performance
+            
+        except Exception as e:
+            print(f"Error running strategy: {str(e)}")
+            raise
 
 if __name__ == "__main__":
-    strategy = TradingStrategy()
-    results = strategy.run()
+    try:
+        strategy = TradingStrategy()
+        results = strategy.run()
+    except Exception as e:
+        print(f"程序运行出错: {str(e)}")

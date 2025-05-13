@@ -40,12 +40,15 @@ def build_improved_model(input_shape):
 
 def train_model(symbol):
     # 加载数据
-    path = f"bs_1/processing_data/{symbol}/"
-    X_train = np.load(f"{path}X_train.npy")
-    y_train = np.load(f"{path}y_train.npy")
-    X_val = np.load(f"{path}X_val.npy")
-    y_val = np.load(f"{path}y_val.npy")
-    
+    data_path = f"bs_1/processing_data/{symbol}"
+    X_train = np.load(f"{data_path}/X_train.npy")
+    y_train = np.load(f"{data_path}/y_train.npy")
+    # 训练验证分割
+    val_split = int(0.2 * len(X_train))
+    X_train = X_train[:-val_split]
+    y_train = y_train[:-val_split]
+    X_val = X_train[val_split:]
+    y_val = y_train[val_split:]
     # 模型参数
     input_shape = (X_train.shape[1], X_train.shape[2])
     model = build_improved_model(input_shape)
@@ -65,8 +68,8 @@ def train_model(symbol):
         callbacks=callbacks,
         verbose=2
     )
-# if __name__ == "__main__":
-#     symbols = [f.split(".")[0] for f in os.listdir("bs_1/processing_data")]
-#     for symbol in symbols:
-#         print(f"正在处理 {symbol}...")
-#         train_model(symbol)
+if __name__ == "__main__":
+    symbols = [f.split(".")[0] for f in os.listdir("bs_1/processing_data")]
+    for symbol in symbols:
+        print(f"正在处理 {symbol}...")
+        train_model(symbol)
