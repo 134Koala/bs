@@ -83,8 +83,9 @@ def predict_all_stocks():
             
             # 可视化
             plt.figure(figsize=(12, 6))
-            plt.plot(results.actual, label="Actual")
-            plt.plot(results.predicted, label="Predicted")
+            plt.plot(results.date,results.actual, label="Actual")
+            plt.plot(results.date,results.predicted, label="Predicted")
+            plt.gcf().autofmt_xdate()  # 自动旋转日期标签
             plt.title(f"{code} Stock Price Prediction")
             plt.legend()
             plt.savefig(os.path.join(result_dir, "prediction_plot.png"))
@@ -98,5 +99,5 @@ def predict_all_stocks():
     # 保存汇总指标
     pd.DataFrame(all_metrics).to_csv(os.path.join(RESULTS_PATH, "all_metrics.csv"), index=False)
     print("\n所有股票预测完成.汇总指标已保存")
-# if __name__ == "__main__":
-#     predict_all_stocks()
+if __name__ == "__main__":
+    predict_all_stocks()
