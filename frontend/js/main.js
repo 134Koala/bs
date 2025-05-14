@@ -8,9 +8,14 @@ function initCapitalChart() {
             datasets: [{
                 label: '资金曲线',
                 data: [],
-                borderColor: 'rgb(54, 162, 235)',
-                borderWidth: 1,
-                pointRadius: 0 // 不显示点
+                borderColor: 'rgba(54, 162, 235, 0.8)', // 增加透明度
+                backgroundColor: 'rgba(54, 162, 235, 0.1)', // 添加背景色
+                borderWidth: 3, // 加粗线条
+                pointRadius: 0,
+                tension: 0.2, // 添加轻微曲线张力
+                fill: true, // 填充曲线下方
+                borderJoinStyle: 'round', // 线条连接处圆角
+                borderCapStyle: 'round' // 线条端点圆角
             }]
         },
         options: {
@@ -18,11 +23,19 @@ function initCapitalChart() {
             maintainAspectRatio: false,
             plugins: {
                 legend: {
-                    display: false // 不显示图例
+                    display: false
                 },
                 tooltip: {
                     mode: 'index',
-                    intersect: false
+                    intersect: false,
+                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                    titleFont: {
+                        size: 14,
+                        weight: 'bold'
+                    },
+                    bodyFont: {
+                        size: 12
+                    }
                 }
             },
             scales: {
@@ -32,45 +45,82 @@ function initCapitalChart() {
                     }
                 },
                 y: {
-                    beginAtZero: false
+                    beginAtZero: false,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                }
+            },
+            elements: {
+                line: {
+                    cubicInterpolationMode: 'monotone' // 更平滑的曲线
                 }
             }
         }
     });
     return chart;
 }
-
 // 初始化股票图表
 function initStockChart() {
     const ctx = document.getElementById('stockChart').getContext('2d');
     const chart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: [], // 将从后端获取日期数据
+            labels: [],
             datasets: [{
                 label: '实际价格',
-                data: [], // 将从后端获取数据
-                borderColor: 'rgb(54, 162, 235)',
-                backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                data: [],
+                borderColor: 'rgba(54, 162, 235, 0.8)',
+                backgroundColor: 'rgba(54, 162, 235, 0.05)', // 更透明的背景色
+                borderWidth: 1.5, // 更细的线条
                 tension: 0.1,
-                fill: true
+                fill: true,
+                pointRadius: 0 // 不显示点
             },
             {
                 label: '预测价格',
-                data: [], // 将从后端获取数据
-                borderColor: 'rgb(255, 99, 132)',
-                borderDash: [5, 5],
+                data: [],
+                borderColor: 'rgba(255, 99, 132, 0.8)',
+                borderWidth: 1.5, // 更细的线条
+                // borderDash: [3, 3], // 更短的虚线样式
                 tension: 0.1,
-                fill: false
+                fill: false,
+                pointRadius: 0 // 不显示点
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            plugins: {
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                    titleFont: {
+                        size: 14,
+                        weight: 'bold'
+                    },
+                    bodyFont: {
+                        size: 12
+                    }
+                }
+            },
             scales: {
                 y: {
-                    beginAtZero: false
+                    beginAtZero: false,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
                 }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
             }
         }
     });
