@@ -8,14 +8,14 @@ function initCapitalChart() {
             datasets: [{
                 label: '资金曲线',
                 data: [],
-                borderColor: 'rgba(54, 162, 235, 0.8)', // 增加透明度
-                backgroundColor: 'rgba(54, 162, 235, 0.1)', // 添加背景色
-                borderWidth: 3, // 加粗线条
+                borderColor: 'rgba(54, 162, 235, 0.8)',
+                backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                borderWidth: 3,
                 pointRadius: 0,
-                tension: 0.2, // 添加轻微曲线张力
-                fill: true, // 填充曲线下方
-                borderJoinStyle: 'round', // 线条连接处圆角
-                borderCapStyle: 'round' // 线条端点圆角
+                tension: 0.2,
+                fill: true,
+                borderJoinStyle: 'round',
+                borderCapStyle: 'round'
             }]
         },
         options: {
@@ -53,13 +53,14 @@ function initCapitalChart() {
             },
             elements: {
                 line: {
-                    cubicInterpolationMode: 'monotone' // 更平滑的曲线
+                    cubicInterpolationMode: 'monotone'
                 }
             }
         }
     });
     return chart;
 }
+
 // 初始化股票图表
 function initStockChart() {
     const ctx = document.getElementById('stockChart').getContext('2d');
@@ -71,21 +72,20 @@ function initStockChart() {
                 label: '实际价格',
                 data: [],
                 borderColor: 'rgba(54, 162, 235, 0.8)',
-                backgroundColor: 'rgba(54, 162, 235, 0.05)', // 更透明的背景色
-                borderWidth: 1.5, // 更细的线条
+                backgroundColor: 'rgba(54, 162, 235, 0.05)',
+                borderWidth: 1.5,
                 tension: 0.1,
                 fill: true,
-                pointRadius: 0 // 不显示点
+                pointRadius: 0
             },
             {
                 label: '预测价格',
                 data: [],
                 borderColor: 'rgba(255, 99, 132, 0.8)',
-                borderWidth: 1.5, // 更细的线条
-                // borderDash: [3, 3], // 更短的虚线样式
+                borderWidth: 1.5,
                 tension: 0.1,
                 fill: false,
-                pointRadius: 0 // 不显示点
+                pointRadius: 0
             }]
         },
         options: {
@@ -127,20 +127,56 @@ function initStockChart() {
     return chart;
 }
 
+// 获取股票列表
+async function fetchStockList() {
+    try {
+        const response = await fetch('http://localhost:5000/api/stocks');
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching stock list:', error);
+        return [];
+    }
+}
+
+// 更新股票选择器
+async function updateStockSelector() {
+    const selector = document.getElementById('stock-selector');
+    selector.innerHTML = '<option value="" disabled selected>请选择股票...</option>';
+    
+    const stocks = await fetchStockList();
+    if (stocks.length > 0) {
+        stocks.forEach(stock => {
+            const option = document.createElement('option');
+            option.value = stock.code;
+            option.textContent = `${stock.name} (${stock.code})`;
+            selector.appendChild(option);
+        });
+        
+        // 默认加载第一只股票
+        loadStockData(stocks[0].code);
+    } else {
+        selector.innerHTML = '<option value="" disabled selected>没有可用的股票数据</option>';
+    }
+}
+
 // 更新股票选择器事件
 function setupStockSelector() {
     const selector = document.getElementById('stock-selector');
     selector.addEventListener('change', function() {
         const selectedStock = this.value;
-        loadStockData(selectedStock); // 当选择股票时加载对应数据
-        console.log('Selected stock:', selectedStock);
+        if (selectedStock) {
+            loadStockData(selectedStock);
+        }
     });
 }
 
 // 更新交易记录表格
 function updateTradeLog(trades) {
     const tableBody = document.querySelector('#trade-log tbody');
-    tableBody.innerHTML = ''; // 清空现有内容
+    tableBody.innerHTML = '';
     
     trades.forEach(trade => {
         const row = document.createElement('tr');
@@ -185,16 +221,12 @@ async function fetchData(endpoint) {
 }
 
 // 获取仪表盘数据
-// 更新资金曲线图表
-// 获取仪表盘数据
 async function loadDashboardData() {
     const data = await fetchData('api/dashboard');
     if (data) {
-        // 确保日期和值是匹配的数组
         const dates = data.capital_dates || [];
         const strategyValues = data.strategy_values || [];
         
-        // 如果数据点太多，可以采样显示
         const maxPoints = 100;
         const step = Math.max(1, Math.floor(dates.length / maxPoints));
         const sampledDates = [];
@@ -205,12 +237,10 @@ async function loadDashboardData() {
             sampledStrategy.push(strategyValues[i]);
         }
         
-        // 更新资金曲线图表
         capitalChart.data.labels = sampledDates;
         capitalChart.data.datasets[0].data = sampledStrategy;
         capitalChart.update();
         
-        // 更新概览卡片
         document.getElementById('stock-count').textContent = data.stock_count;
         document.getElementById('strategy-return').textContent = `${(data.strategy_return * 100).toFixed(2)}%`;
         document.getElementById('sharpe-ratio').textContent = data.sharpe_ratio.toFixed(2);
@@ -221,13 +251,11 @@ async function loadDashboardData() {
 async function loadStockData(stockCode) {
     const data = await fetchData(`api/stock/${stockCode}`);
     if (data) {
-        // 更新股票图表
         stockChart.data.labels = data.dates;
         stockChart.data.datasets[0].data = data.actual_prices;
         stockChart.data.datasets[1].data = data.predicted_prices;
         stockChart.update();
         
-        // 更新股票指标
         document.getElementById('accuracy-rate').textContent = `${(data.accuracy * 100).toFixed(2)}%`;
         document.getElementById('avg-return').textContent = `${(data.avg_return * 100).toFixed(2)}%`;
         document.getElementById('volatility').textContent = data.volatility.toFixed(4);
@@ -257,10 +285,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupStockSelector();
     
     // 加载初始数据
-    loadDashboardData().then(() => {
-        // 默认加载第一只股票
-        const defaultStock = document.getElementById('stock-selector').value;
-        loadStockData(defaultStock);
-    });
+    loadDashboardData();
+    updateStockSelector();
     loadStrategyData();
 });

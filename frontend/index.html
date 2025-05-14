@@ -45,7 +45,7 @@
                         <div class="card">
                             <div class="card-body">
                                 <h5 class="card-title">覆盖股票</h5>
-                                <p class="card-text display-4" id="stock-count">6</p>
+                                <p class="card-text display-4" id="stock-count">0</p>
                             </div>
                         </div>
                     </div>
@@ -92,12 +92,7 @@
                             <div class="card-body">
                                 <h5 class="card-title">选择股票</h5>
                                 <select class="form-select" id="stock-selector">
-                                    <option value="000001">平安银行 (000001)</option>
-                                    <option value="000002">万科A (000002)</option>
-                                    <option value="601088">中国神华 (601088)</option>
-                                    <option value="601001">大同煤业 (601001)</option>
-                                    <option value="601898">中煤能源 (601898)</option>
-                                    <option value="000983">山西焦煤 (000983)</option>
+                                    <option value="" disabled selected>加载中...</option>
                                 </select>
                             </div>
                         </div>
@@ -240,7 +235,6 @@
 
     <!-- 替换Chart.js链接 -->
     <script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-    // 在index.html中添加（需在Chart.js之后引入）
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.min.js"></script>
     <script src="js/main.js"></script>
 </body>

@@ -55,7 +55,7 @@ def train_model(symbol):
     
     # 训练配置
     callbacks = [
-        EarlyStopping(patience=10, restore_best_weights=True),
+        EarlyStopping(patience=20, restore_best_weights=True),
         ModelCheckpoint(f"bs_1/model/{symbol}_best.h5", save_best_only=True)
     ]
     

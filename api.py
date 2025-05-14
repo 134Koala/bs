@@ -1,9 +1,29 @@
 from flask import Flask, jsonify
 import pandas as pd
 from flask_cors import CORS
+import os
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+# 获取股票列表
+@app.route('/api/stocks')
+def stock_list():
+    # 假设股票数据存储在bs_1/pre_results目录下的各个子目录中
+    base_path = 'bs_1/pre_results'
+    stocks = []
+    
+    # 遍历目录获取股票代码和名称
+    for dir_name in os.listdir(base_path):
+        if os.path.isdir(os.path.join(base_path, dir_name)) and dir_name != 'shared_pool':
+            # 假设目录名就是股票代码
+            code = dir_name
+            # 这里可以添加从文件或其他地方获取股票名称的逻辑
+            # 暂时使用代码作为名称
+            name = f"股票{code}"
+            stocks.append({"code": code, "name": name})
+    
+    return jsonify(stocks)
 
 # 仪表盘数据
 @app.route('/api/dashboard')
@@ -48,17 +68,15 @@ def stock(code):
     })
 
 # 策略数据
+# 策略数据
 @app.route('/api/strategy')
 def strategy():
     # 从performance文件中获取指标
     perf_df = pd.read_csv('bs_1/pre_results/shared_pool/performance.csv')
     metrics = perf_df.iloc[0].to_dict()
     
-    # 从trade_log文件中获取交易记录
-    trade_df = pd.read_csv('bs_1/pre_results/shared_pool/trade_log.csv')
-    
-    # 转换交易记录中的code为字符串类型
-    trade_df['code'] = trade_df['code'].astype(str)
+    # 从trade_log文件中获取交易记录，指定code列为字符串类型
+    trade_df = pd.read_csv('bs_1/pre_results/shared_pool/trade_log.csv', dtype={'code': str})
     
     # 格式化指标名称以匹配前端期望
     formatted_metrics = {

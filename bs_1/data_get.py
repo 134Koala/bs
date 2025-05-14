@@ -36,5 +36,5 @@ def fetch_stock_data():
             print(f"{symbol} 数据获取成功")
         except Exception as e:
             print(f"{symbol} 获取失败: {str(e)}")
-if __name__ == "__main__":
-    fetch_stock_data()
+# if __name__ == "__main__":
+#     fetch_stock_data()

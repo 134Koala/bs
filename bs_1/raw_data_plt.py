@@ -8,7 +8,7 @@ plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
 
 def plot_data(symbol):
     # 设置路径和参数
-    data_path = f"bs_1/stock_data/{symbol}/test.csv"
+    data_path = f"bs_1/stock_data/{symbol}/train.csv"
     output_dir = f"bs_1/stock_data/{symbol}/visualization"
     os.makedirs(output_dir, exist_ok=True)
 
