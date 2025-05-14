@@ -6,32 +6,20 @@ function initCapitalChart() {
         data: {
             labels: [],
             datasets: [{
-                label: '策略资金曲线',
+                label: '资金曲线',
                 data: [],
-                borderColor: 'rgb(75, 192, 192)',
-                backgroundColor: 'rgba(75, 192, 192, 0.1)',
-                tension: 0.1,
-                fill: true,
-                pointRadius: 0 // 不显示点，避免拥挤
-            },
-            {
-                label: '基准曲线',
-                data: [],
-                borderColor: 'rgb(255, 99, 132)',
-                backgroundColor: 'rgba(255, 99, 132, 0.1)',
-                tension: 0.1,
-                fill: true,
-                pointRadius: 0
+                borderColor: 'rgb(54, 162, 235)',
+                borderWidth: 1,
+                pointRadius: 0 // 不显示点
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            interaction: {
-                intersect: false,
-                mode: 'index'
-            },
             plugins: {
+                legend: {
+                    display: false // 不显示图例
+                },
                 tooltip: {
                     mode: 'index',
                     intersect: false
@@ -41,19 +29,10 @@ function initCapitalChart() {
                 x: {
                     grid: {
                         display: false
-                    },
-                    ticks: {
-                        maxRotation: 45,
-                        minRotation: 45
                     }
                 },
                 y: {
-                    beginAtZero: false,
-                    ticks: {
-                        callback: function(value) {
-                            return value.toLocaleString();
-                        }
-                    }
+                    beginAtZero: false
                 }
             }
         }
@@ -157,31 +136,28 @@ async function fetchData(endpoint) {
 
 // 获取仪表盘数据
 // 更新资金曲线图表
+// 获取仪表盘数据
 async function loadDashboardData() {
     const data = await fetchData('api/dashboard');
     if (data) {
         // 确保日期和值是匹配的数组
         const dates = data.capital_dates || [];
         const strategyValues = data.strategy_values || [];
-        const benchmarkValues = data.benchmark_values || [];
         
         // 如果数据点太多，可以采样显示
         const maxPoints = 100;
         const step = Math.max(1, Math.floor(dates.length / maxPoints));
         const sampledDates = [];
         const sampledStrategy = [];
-        const sampledBenchmark = [];
         
         for (let i = 0; i < dates.length; i += step) {
             sampledDates.push(dates[i]);
             sampledStrategy.push(strategyValues[i]);
-            sampledBenchmark.push(benchmarkValues[i]);
         }
         
         // 更新资金曲线图表
         capitalChart.data.labels = sampledDates;
         capitalChart.data.datasets[0].data = sampledStrategy;
-        capitalChart.data.datasets[1].data = sampledBenchmark;
         capitalChart.update();
         
         // 更新概览卡片

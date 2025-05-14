@@ -1,26 +1,28 @@
 from flask import Flask, jsonify
 import pandas as pd
-import numpy as np
 from flask_cors import CORS
-import json
+
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # 仪表盘数据
 @app.route('/api/dashboard')
 def dashboard():
     # 从performance文件中获取基本指标
-    perf_df = pd.read_csv('bs_1/pre_results/shared_pool/performance.csv')
+    perf_df = pd.read_csv(f'bs_1/pre_results/shared_pool/performance.csv')
     metrics = perf_df.iloc[0].to_dict()
     
-    # 从strategy_results文件中获取资金曲线数据
-    strat_df = pd.read_csv('bs_1/pre_results/shared_pool/strategy_results.csv')
+    # 从strategy_results文件中获取资金曲线数据并进行数据清洗
+    strat_df = pd.read_csv('D:/bs/bs_1/pre_results/shared_pool/strategy_results.csv')
+    
+    # 数据清洗：按date列去重，保留最后一条记录
+    strat_df = strat_df.drop_duplicates(subset=['date'], keep='last')
     
     # 处理日期格式
     strat_df['date'] = pd.to_datetime(strat_df['date']).dt.strftime('%Y-%m-%d')
     
     # 获取股票数量（从trade_log中统计）
-    trade_df = pd.read_csv('bs_1/pre_results/shared_pool/trade_log.csv')
+    trade_df = pd.read_csv('D:/bs/bs_1/pre_results/shared_pool/trade_log.csv')
     stock_count = len(trade_df['code'].unique())
     
     return jsonify({
@@ -28,9 +30,7 @@ def dashboard():
         "strategy_return": metrics['Total Return'],
         "sharpe_ratio": metrics['Sharpe Ratio'],
         "capital_dates": strat_df['date'].tolist(),
-        "strategy_values": strat_df['total'].tolist(),
-        # 基准曲线（这里假设使用第一个股票作为基准）
-        "benchmark_values": strat_df['true_price'].tolist()
+        "strategy_values": strat_df['total'].tolist()
     })
 
 # 股票数据
