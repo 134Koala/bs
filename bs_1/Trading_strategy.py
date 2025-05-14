@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from datetime import datetime
-
+import json
 class TradingStrategy:
     def __init__(self, results_dir='bs_1/pre_results', init_capital=1000000, transaction_cost=0.001):
         self.base_path = Path(results_dir)
@@ -20,26 +20,26 @@ class TradingStrategy:
         #     'volatility_factor': 0.5  # 波动率调整因子
         # }
         
-        # self.strategy_params = {
-        #     'hold_threshold': 0.005,  # 更小的阈值
-        #     'stop_loss': -0.03,      # 更宽松的止损
-        #     'take_profit': 0.05,     # 更保守的止盈
-        #     'max_position_per_stock': 0.1,  # 更小的单股仓位
-        #     'min_position_days': 3,    # 最小持仓天数
-        #     'max_position_days': 20,  # 添加最大持仓天数
-        #     'volatility_factor': 0.5  # 波动率调整因子
-        # }
+        self.strategy_params = {
+            'hold_threshold': 0.005,  # 更小的阈值
+            'stop_loss': -0.03,      # 更宽松的止损
+            'take_profit': 0.05,     # 更保守的止盈
+            'max_position_per_stock': 0.1,  # 更小的单股仓位
+            'min_position_days': 3,    # 最小持仓天数
+            'max_position_days': 20,  # 添加最大持仓天数
+            'volatility_factor': 0.5  # 波动率调整因子
+        }
 
         # 只对000001和000002两只整体下跌的股票进行操作，调整策略参数
-        self.strategy_params = {
-            'hold_threshold': -0.003,  # 改为负值阈值，捕捉下跌信号
-            'stop_loss': 0.02,        # 止损改为正值（对空头而言是上涨止损）
-            'take_profit': -0.03,     # 止盈改为负值（目标下跌幅度）
-            'max_position_per_stock': 0.05,  # 进一步降低仓位（下跌风险更大）
-            'min_position_days': 3,   # 缩短持仓时间（快速获利了结）
-            'max_position_days': 10,  # 更严格限制最大持仓天数
-            'volatility_factor': 0.8  # 提高波动率敏感性
-        }
+        # self.strategy_params = {
+        #     'hold_threshold': -0.003,  # 改为负值阈值，捕捉下跌信号
+        #     'stop_loss': 0.02,        # 止损改为正值（对空头而言是上涨止损）
+        #     'take_profit': -0.03,     # 止盈改为负值（目标下跌幅度）
+        #     'max_position_per_stock': 0.05,  # 进一步降低仓位（下跌风险更大）
+        #     'min_position_days': 3,   # 缩短持仓时间（快速获利了结）
+        #     'max_position_days': 10,  # 更严格限制最大持仓天数
+        #     'volatility_factor': 0.8  # 提高波动率敏感性
+        # }
         self.trade_log = []
 
     def load_predictions(self):
@@ -119,11 +119,11 @@ class TradingStrategy:
 
     def backtest_strategy(self, df):
         """共享资金池的回测策略"""
-        # 检查必要列是否存在
-        required_columns = ['code', 'signal', 'open', 'true_price', 'hold_days']
-        if not all(col in df.columns for col in required_columns):
-            missing = [col for col in required_cols if col not in df.columns]
-            raise ValueError(f"DataFrame缺少必要列: {missing}")
+        # # 检查必要列是否存在
+        # required_columns = ['code', 'signal', 'open', 'true_price', 'hold_days']
+        # if not all(col in df.columns for col in required_columns):
+        #     missing = [col for col in required_cols if col not in df.columns]
+        #     raise ValueError(f"DataFrame缺少必要列: {missing}")
         
         # 添加波动率加权仓位分配
         df['position_weight'] = 1 / (1 + df['volatility'])
@@ -346,6 +346,121 @@ class TradingStrategy:
             trade_df = pd.DataFrame(self.trade_log)
             trade_df.to_csv(save_dir/'trade_log.csv', index=False)
 
+    # 在TradingStrategy类中添加以下方法
+    def get_dashboard_data(self, df=None):
+        """生成仪表盘API所需的数据格式"""
+        if df is None:
+            # 如果没有传入df，尝试从保存的结果中加载
+            results_file = self.base_path / 'shared_pool' / 'strategy_results.csv'
+            if not results_file.exists():
+                raise FileNotFoundError("Strategy results file not found. Please run the strategy first.")
+            df = pd.read_csv(results_file, parse_dates=['date'])
+        
+        # 获取已计算的performance数据
+        performance = self.analyze_performance(df)
+        
+        # 获取策略每日总资产值（去重）
+        daily_totals = df[~df.index.duplicated(keep='first')]['total']
+        
+        # 计算真实的基准收益（等权重买入持有所有股票）
+        benchmark_values = []
+        stock_codes = df['code'].unique()
+        num_stocks = len(stock_codes)
+        
+        if num_stocks > 0:
+            # 计算每只股票初始价格
+            init_prices = {}
+            for code in stock_codes:
+                stock_data = df[df['code'] == code]
+                init_prices[code] = stock_data['true_price'].iloc[0]
+            
+            # 计算每日基准值
+            for date in daily_totals.index:
+                date_value = 0
+                for code in stock_codes:
+                    stock_data = df[(df['code'] == code) & (df.index == date)]
+                    if not stock_data.empty:
+                        current_price = stock_data['true_price'].values[0]
+                        date_value += (self.init_capital / num_stocks) * (current_price / init_prices[code])
+                benchmark_values.append(date_value)
+        else:
+            # 如果没有股票数据，使用线性增长作为后备
+            benchmark_values = np.linspace(self.init_capital, 
+                                        self.init_capital * (1 + performance['Total Return']), 
+                                        len(daily_totals)).tolist()
+        
+        # 准备数据
+        dashboard_data = {
+            "metrics": {
+                "init_capital": self.init_capital,
+                "final_value": performance['Final Value'],
+                "total_return": performance['Total Return'],
+                "annual_return": performance['Annualized Return'],
+                "max_drawdown": performance['Max Drawdown'],
+                "sharpe_ratio": performance['Sharpe Ratio'],
+                "win_rate": performance['Win Rate'],
+                "avg_hold_days": performance['Avg Hold Days'],
+                "total_trades": performance['Total Trades']
+            },
+            "chart_data": {
+                "dates": daily_totals.index.strftime('%Y-%m-%d').tolist(),
+                "strategy_values": daily_totals.values.tolist(),
+                "benchmark_values": benchmark_values,
+                "drawdown": (daily_totals.cummax() - daily_totals).tolist()
+            },
+            "stock_count": len(stock_codes),
+            "transaction_count": len(self.trade_log)
+        }
+        
+        return dashboard_data
+    def save_api_data(self, performance_metrics, save_dir=None):
+        """保存API所需的数据到单独文件"""
+        if save_dir is None:
+            save_dir = self.base_path / 'shared_pool'
+        
+        save_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 加载结果数据用于生成dashboard数据
+        results_file = save_dir / 'strategy_results.csv'
+        df = pd.read_csv(results_file, parse_dates=['date'])
+        
+        # 确保每个日期只有一个总资产值
+        daily_totals = df[~df.index.duplicated(keep='first')]['total']
+        
+        # 确保索引是DatetimeIndex
+        if not isinstance(daily_totals.index, pd.DatetimeIndex):
+            daily_totals.index = pd.to_datetime(daily_totals.index)
+        
+        # 准备API数据
+        api_data = {
+            "metrics": {
+                "init_capital": performance_metrics['Initial Capital'],
+                "final_value": performance_metrics['Final Value'],
+                "total_return": performance_metrics['Total Return'],
+                "annual_return": performance_metrics['Annualized Return'],
+                "max_drawdown": performance_metrics['Max Drawdown'],
+                "sharpe_ratio": performance_metrics['Sharpe Ratio'],
+                "win_rate": performance_metrics['Win Rate']
+            },
+            "trades": self.trade_log,
+            "dashboard": {
+                "stock_count": len(df['code'].unique()),
+                "strategy_return": performance_metrics['Total Return'],
+                "sharpe_ratio": performance_metrics['Sharpe Ratio'],
+                "capital_dates": daily_totals.index.strftime('%Y-%m-%d').tolist(),
+                "strategy_values": daily_totals.values.tolist(),
+                "benchmark_values": (daily_totals.iloc[0] * (1 + np.linspace(0, performance_metrics['Total Return'], len(daily_totals)))).tolist(),
+                "transaction_count": len(self.trade_log),
+                "win_rate": performance_metrics['Win Rate']
+            }
+        }
+        
+        # 保存到JSON文件
+        api_file = save_dir / 'api_data.json'
+        with open(api_file, 'w') as f:
+            json.dump(api_data, f, indent=4, default=str)
+        
+        return api_file
     def run(self):
         """执行完整策略测试"""
         try:
@@ -369,6 +484,10 @@ class TradingStrategy:
             # 绩效分析
             print("Analyzing performance...")
             performance = self.analyze_performance(results)
+            
+            # 保存API数据
+            print("Saving API data...")
+            self.save_api_data(performance, save_dir)
             
             # 可视化
             print("Generating plots...")
