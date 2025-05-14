@@ -10,22 +10,36 @@ class TradingStrategy:
         self.base_path = Path(results_dir)
         self.init_capital = float(init_capital)
         self.trans_cost = transaction_cost
-        self.strategy_params = {
-            'hold_threshold': 0.008,  # 提高信号阈值
-            'stop_loss': -0.02,      # 收紧止损
-            'take_profit': 0.03,     # 降低止盈
-            'max_position_per_stock': 0.08,  # 降低单股仓位
-            'min_position_days': 5,   # 缩短最小持仓天数
-            'max_position_days': 20,  # 添加最大持仓天数
-            'volatility_factor': 0.5  # 波动率调整因子
-        }
+        # self.strategy_params = {
+        #     'hold_threshold': 0.005,  # 提高信号阈值
+        #     'stop_loss': -0.02,      # 收紧止损
+        #     'take_profit': 0.03,     # 降低止盈
+        #     'max_position_per_stock': 0.08,  # 降低单股仓位
+        #     'min_position_days': 5,   # 缩短最小持仓天数
+        #     'max_position_days': 20,  # 添加最大持仓天数
+        #     'volatility_factor': 0.5  # 波动率调整因子
+        # }
+        
         # self.strategy_params = {
         #     'hold_threshold': 0.005,  # 更小的阈值
         #     'stop_loss': -0.03,      # 更宽松的止损
         #     'take_profit': 0.05,     # 更保守的止盈
         #     'max_position_per_stock': 0.1,  # 更小的单股仓位
-        #     'min_position_days': 3    # 最小持仓天数
+        #     'min_position_days': 3,    # 最小持仓天数
+        #     'max_position_days': 20,  # 添加最大持仓天数
+        #     'volatility_factor': 0.5  # 波动率调整因子
         # }
+
+        # 只对000001和000002两只整体下跌的股票进行操作，调整策略参数
+        self.strategy_params = {
+            'hold_threshold': -0.003,  # 改为负值阈值，捕捉下跌信号
+            'stop_loss': 0.02,        # 止损改为正值（对空头而言是上涨止损）
+            'take_profit': -0.03,     # 止盈改为负值（目标下跌幅度）
+            'max_position_per_stock': 0.05,  # 进一步降低仓位（下跌风险更大）
+            'min_position_days': 3,   # 缩短持仓时间（快速获利了结）
+            'max_position_days': 10,  # 更严格限制最大持仓天数
+            'volatility_factor': 0.8  # 提高波动率敏感性
+        }
         self.trade_log = []
 
     def load_predictions(self):
