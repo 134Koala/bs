@@ -84,45 +84,62 @@
         <!-- 股票分析部分 -->
         <section id="stocks" class="mb-5">
             <h2>股票分析</h2>
-            <div class="row">
-                <!-- 这里将添加股票选择器和图表 -->
-                 <div class="row">
-                    <div class="col-md-3">
-                        <div class="card">
-                            <div class="card-body">
-                                <h5 class="card-title">选择股票</h5>
-                                <select class="form-select" id="stock-selector">
-                                    <option value="" disabled selected>加载中...</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="card mt-3">
-                            <div class="card-body">
-                                <h5 class="card-title">股票指标</h5>
-                                <ul class="list-group list-group-flush">
-                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        预测准确率
-                                        <span class="badge bg-primary rounded-pill" id="accuracy-rate">0%</span>
-                                    </li>
-                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        平均收益率
-                                        <span class="badge bg-success rounded-pill" id="avg-return">0%</span>
-                                    </li>
-                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        波动率
-                                        <span class="badge bg-warning rounded-pill" id="volatility">0</span>
-                                    </li>
-                                </ul>
-                            </div>
+            <div class="row g-3">
+                <!-- 左侧控制面板 -->
+                <div class="col-md-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">选择股票</h5>
+                            <select class="form-select mb-3" id="stock-selector">
+                                <option value="" disabled selected>加载中...</option>
+                            </select>
+                            
+                            <h5 class="card-title mt-4">股票指标</h5>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    预测准确率
+                                    <span class="badge bg-primary rounded-pill" id="accuracy-rate">0%</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    平均收益率
+                                    <span class="badge bg-success rounded-pill" id="avg-return">0%</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    波动率
+                                    <span class="badge bg-warning rounded-pill" id="volatility">0</span>
+                                </li>
+                            </ul>
+                            
+                            <h5 class="card-title mt-4">预测评估指标</h5>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    平均绝对误差 (MAE)
+                                    <span class="badge bg-info rounded-pill" id="mae">0</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    均方误差 (MSE)
+                                    <span class="badge bg-info rounded-pill" id="mse">0</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    均方根误差 (RMSE)
+                                    <span class="badge bg-info rounded-pill" id="rmse">0</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    决定系数 (R²)
+                                    <span class="badge bg-info rounded-pill" id="r2">0</span>
+                                </li>
+                            </ul>
                         </div>
                     </div>
-                    <div class="col-md-9">
-                        <div class="card">
-                            <div class="card-body">
-                                <h5 class="card-title">价格预测</h5>
-                                <div class="chart-container">
-                                    <canvas id="stockChart"></canvas>
-                                </div>
+                </div>
+                
+                <!-- 右侧图表区域 -->
+                <div class="col-md-9">
+                    <div class="card h-100">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title">价格预测</h5>
+                            <div class="chart-container flex-grow-1">
+                                <canvas id="stockChart" style="height: 100%; width: 100%"></canvas>
                             </div>
                         </div>
                     </div>

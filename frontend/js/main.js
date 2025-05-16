@@ -156,7 +156,9 @@ async function updateStockSelector() {
         });
         
         // 默认加载第一只股票
-        loadStockData(stocks[0].code);
+        if (stocks[0] && stocks[0].code) {
+            loadStockData(stocks[0].code);
+        }
     } else {
         selector.innerHTML = '<option value="" disabled selected>没有可用的股票数据</option>';
     }
@@ -178,17 +180,19 @@ function updateTradeLog(trades) {
     const tableBody = document.querySelector('#trade-log tbody');
     tableBody.innerHTML = '';
     
+    if (!trades || trades.length === 0) return;
+    
     trades.forEach(trade => {
         const row = document.createElement('tr');
         
         row.innerHTML = `
-            <td>${trade.date}</td>
-            <td>${trade.code}</td>
+            <td>${trade.date || ''}</td>
+            <td>${trade.code || ''}</td>
             <td><span class="badge ${trade.action === 'buy' ? 'bg-success' : 'bg-danger'}">${trade.action === 'buy' ? '买入' : '卖出'}</span></td>
-            <td>${trade.price.toFixed(2)}</td>
-            <td>${trade.shares.toFixed(2)}</td>
-            <td>${trade.value.toFixed(2)}</td>
-            <td>${trade.hold_days}</td>
+            <td>${trade.price ? trade.price.toFixed(2) : '0.00'}</td>
+            <td>${trade.shares ? trade.shares.toFixed(2) : '0.00'}</td>
+            <td>${trade.value ? trade.value.toFixed(2) : '0.00'}</td>
+            <td>${trade.hold_days || '0'}</td>
         `;
         
         tableBody.appendChild(row);
@@ -197,13 +201,29 @@ function updateTradeLog(trades) {
 
 // 更新策略指标
 function updateStrategyMetrics(metrics) {
-    document.getElementById('init-capital').textContent = metrics.init_capital.toLocaleString();
-    document.getElementById('final-value').textContent = metrics.final_value.toLocaleString();
-    document.getElementById('total-return').textContent = `${(metrics.total_return * 100).toFixed(2)}%`;
-    document.getElementById('annual-return').textContent = `${(metrics.annual_return * 100).toFixed(2)}%`;
-    document.getElementById('max-drawdown').textContent = `${(metrics.max_drawdown * 100).toFixed(2)}%`;
-    document.getElementById('sharpe-ratio-strategy').textContent = metrics.sharpe_ratio.toFixed(2);
-    document.getElementById('win-rate').textContent = `${(metrics.win_rate * 100).toFixed(2)}%`;
+    if (!metrics) return;
+    
+    document.getElementById('init-capital').textContent = metrics.init_capital ? metrics.init_capital.toLocaleString() : '0';
+    document.getElementById('final-value').textContent = metrics.final_value ? metrics.final_value.toLocaleString() : '0';
+    document.getElementById('total-return').textContent = `${(metrics.total_return ? (metrics.total_return * 100) : 0).toFixed(2)}%`;
+    document.getElementById('annual-return').textContent = `${(metrics.annual_return ? (metrics.annual_return * 100) : 0).toFixed(2)}%`;
+    document.getElementById('max-drawdown').textContent = `${(metrics.max_drawdown ? (metrics.max_drawdown * 100) : 0).toFixed(2)}%`;
+    document.getElementById('sharpe-ratio-strategy').textContent = metrics.sharpe_ratio ? metrics.sharpe_ratio.toFixed(2) : '0';
+    document.getElementById('win-rate').textContent = `${(metrics.win_rate ? (metrics.win_rate * 100) : 0).toFixed(2)}%`;
+}
+
+async function loadStockMetrics(stockCode) {
+    try {
+        const data = await fetchData(`api/stock_metrics/${stockCode}`);
+        if (data && !data.error) {
+            document.getElementById('mae').textContent = data.MAE ? data.MAE.toFixed(4) : '0';
+            document.getElementById('mse').textContent = data.MSE ? data.MSE.toFixed(4) : '0';
+            document.getElementById('rmse').textContent = data.RMSE ? data.RMSE.toFixed(4) : '0';
+            document.getElementById('r2').textContent = data.R2 ? data.R2.toFixed(4) : '0';
+        }
+    } catch (error) {
+        console.error('Error loading stock metrics:', error);
+    }
 }
 
 // 从后端获取数据
@@ -222,52 +242,67 @@ async function fetchData(endpoint) {
 
 // 获取仪表盘数据
 async function loadDashboardData() {
-    const data = await fetchData('api/dashboard');
-    if (data) {
-        const dates = data.capital_dates || [];
-        const strategyValues = data.strategy_values || [];
-        
-        const maxPoints = 100;
-        const step = Math.max(1, Math.floor(dates.length / maxPoints));
-        const sampledDates = [];
-        const sampledStrategy = [];
-        
-        for (let i = 0; i < dates.length; i += step) {
-            sampledDates.push(dates[i]);
-            sampledStrategy.push(strategyValues[i]);
+    try {
+        const data = await fetchData('api/dashboard');
+        if (data) {
+            const dates = data.capital_dates || [];
+            const strategyValues = data.strategy_values || [];
+            
+            const maxPoints = 100;
+            const step = Math.max(1, Math.floor(dates.length / maxPoints));
+            const sampledDates = [];
+            const sampledStrategy = [];
+            
+            for (let i = 0; i < dates.length; i += step) {
+                sampledDates.push(dates[i]);
+                sampledStrategy.push(strategyValues[i]);
+            }
+            
+            capitalChart.data.labels = sampledDates;
+            capitalChart.data.datasets[0].data = sampledStrategy;
+            capitalChart.update();
+            
+            document.getElementById('stock-count').textContent = data.stock_count || '0';
+            document.getElementById('strategy-return').textContent = `${(data.strategy_return ? (data.strategy_return * 100) : 0).toFixed(2)}%`;
+            document.getElementById('sharpe-ratio').textContent = data.sharpe_ratio ? data.sharpe_ratio.toFixed(2) : '0';
         }
-        
-        capitalChart.data.labels = sampledDates;
-        capitalChart.data.datasets[0].data = sampledStrategy;
-        capitalChart.update();
-        
-        document.getElementById('stock-count').textContent = data.stock_count;
-        document.getElementById('strategy-return').textContent = `${(data.strategy_return * 100).toFixed(2)}%`;
-        document.getElementById('sharpe-ratio').textContent = data.sharpe_ratio.toFixed(2);
+    } catch (error) {
+        console.error('Error loading dashboard data:', error);
     }
 }
 
 // 获取股票数据
 async function loadStockData(stockCode) {
-    const data = await fetchData(`api/stock/${stockCode}`);
-    if (data) {
-        stockChart.data.labels = data.dates;
-        stockChart.data.datasets[0].data = data.actual_prices;
-        stockChart.data.datasets[1].data = data.predicted_prices;
-        stockChart.update();
-        
-        document.getElementById('accuracy-rate').textContent = `${(data.accuracy * 100).toFixed(2)}%`;
-        document.getElementById('avg-return').textContent = `${(data.avg_return * 100).toFixed(2)}%`;
-        document.getElementById('volatility').textContent = data.volatility.toFixed(4);
+    try {
+        const data = await fetchData(`api/stock/${stockCode}`);
+        if (data) {
+            stockChart.data.labels = data.dates || [];
+            stockChart.data.datasets[0].data = data.actual_prices || [];
+            stockChart.data.datasets[1].data = data.predicted_prices || [];
+            stockChart.update();
+            
+            document.getElementById('accuracy-rate').textContent = `${(data.accuracy ? (data.accuracy * 100) : 0).toFixed(2)}%`;
+            document.getElementById('avg-return').textContent = `${(data.avg_return ? (data.avg_return * 100) : 0).toFixed(2)}%`;
+            document.getElementById('volatility').textContent = data.volatility ? data.volatility.toFixed(4) : '0';
+            
+            // 加载指标数据
+            loadStockMetrics(stockCode);
+        }
+    } catch (error) {
+        console.error('Error loading stock data:', error);
     }
 }
 
 // 获取策略数据
 async function loadStrategyData() {
-    const data = await fetchData('api/strategy');
-    if (data) {
-        updateStrategyMetrics(data.metrics);
-        updateTradeLog(data.trades);
+    try {
+        const data = await fetchData('api/strategy');
+        if (data) {
+            updateStrategyMetrics(data.metrics);
+            updateTradeLog(data.trades);
+        }
+    } catch (error) {
+        console.error('Error loading strategy data:', error);
     }
 }
 

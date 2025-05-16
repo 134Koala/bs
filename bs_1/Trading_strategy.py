@@ -245,21 +245,27 @@ class TradingStrategy:
         
         return df
 
-    def analyze_performance(self, df):
+    def analyze_performance(self, df, risk_free_rate=0.0, days_per_year=252):
         """绩效分析"""
-        # 按日期去重（因为每只股票在同一天都有相同的总资产值）
-        daily_totals = df[~df.index.duplicated(keep='first')]['total']
+        # 按日期去重，确保总资产正确
+        daily_totals = df.groupby(df.index)['total'].first()
         
-        returns = daily_totals.pct_change().fillna(0)
+        # 计算日收益率并去除缺失值
+        returns = daily_totals.pct_change().dropna()
         
+        # 计算夏普比率
+        if returns.std() == 0:
+            print("Warning: Standard deviation of returns is zero, setting Sharpe Ratio to 0")
+            sharpe_ratio = 0
+        else:
+            # 考虑无风险利率并年化
+            excess_return = returns.mean() - risk_free_rate / days_per_year
+            sharpe_ratio = excess_return / returns.std() * np.sqrt(days_per_year)
         # 计算累计收益
         cumulative_return = daily_totals.iloc[-1] / self.init_capital - 1
         
         # 年化收益率
         annualized_return = (1 + cumulative_return)**(252/len(daily_totals)) - 1
-        
-        # 夏普比率（假设无风险利率为0）
-        sharpe_ratio = returns.mean() / returns.std() * np.sqrt(252) if returns.std() != 0 else 0
         
         # 最大回撤
         cummax = daily_totals.cummax()
@@ -371,7 +377,7 @@ class TradingStrategy:
             
             # 绩效分析
             print("Analyzing performance...")
-            performance = self.analyze_performance(results)
+            performance = self.analyze_performance(results,risk_free_rate=0.02)
 
             # 将字典转换为DataFrame再保存
             performance_df = pd.DataFrame([performance])
