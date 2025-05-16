@@ -15,8 +15,8 @@ def main():
     args = parser.parse_args()
 
     # 数据获取阶段
-    print("正在获取股票数据...")
-    fetch_stock_data()
+    # print("正在获取股票数据...")
+    # fetch_stock_data()
 
     # 数据处理和模型训练
     if args.symbol:
