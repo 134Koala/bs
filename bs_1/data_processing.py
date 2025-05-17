@@ -6,7 +6,10 @@ import os
 def compute_features(df, mode='train'):
     """特征工程（防止数据泄露版本）"""
     df = df.copy()
-    
+    # 读取沪深300数据
+    hs300_train = pd.read_csv("bs_1/stock_data/000300/train.csv")
+    hs300_test = pd.read_csv("bs_1/stock_data/000300/test.csv")
+
     # 基础特征
     features = ['开盘', '收盘', '最高', '最低', '成交量', 'volatility']
     
@@ -29,14 +32,28 @@ def compute_features(df, mode='train'):
     
     # 量价比（成交量/收盘价）
     df['volume_price_ratio'] = df['成交量'] / (df['收盘'] + 1e-8)
+
+    # 添加沪深300特征
+    hs300_data = hs300_train if mode == 'train' else hs300_test
+    hs300_data = hs300_data[['日期', '收盘', '成交量', 'volatility']]
+    hs300_data.columns = ['日期', 'hs300_close', 'hs300_volume', 'hs300_volatility']
+    
+    # 合并沪深300数据
+    df = pd.merge(df, hs300_data, on='日期', how='left')
+    
+    # 计算个股与沪深300的相对指标
+    df['relative_close'] = df['收盘'] / (df['hs300_close'] + 1e-8)
+    df['relative_volume'] = df['成交量'] / (df['hs300_volume'] + 1e-8)
+    df['relative_volatility'] = df['volatility'] / (df['hs300_volatility'] + 1e-8)
     
     # 特征筛选
-    final_features = ['日期','开盘', '收盘', '最高', '最低', '成交量', 
+    final_features = ['日期', '开盘', '收盘', '最高', '最低', '成交量', 
                      'MA5', 'MA10', 'volatility', 'RSI', 
-                     'MACD', 'volume_price_ratio']
+                     'MACD', 'volume_price_ratio',
+                     'hs300_close', 'hs300_volume', 'hs300_volatility',
+                     'relative_close', 'relative_volume', 'relative_volatility']
+    
     df = df[final_features].dropna()
-
-    # print(df)
 
     return df
 

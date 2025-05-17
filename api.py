@@ -97,28 +97,28 @@ def stock(code):
             "volatility": 0
         })
 
-# 股票评估指标
-@app.route('/api/stock_metrics/<code>')
-def stock_metrics(code):
-    try:
-        # 读取CSV并强制转换股票代码为字符串（避免前导0丢失）
-        df = pd.read_csv('bs_1/pre_results/shared_pool/all_metrics_summary.csv')
-        df['Symbol'] = df['Symbol'].astype(str).str.zfill(6)  # 补全6位代码
+# # 股票评估指标
+# @app.route('/api/stock_metrics/<code>')
+# def stock_metrics(code):
+#     try:
+#         # 读取CSV并强制转换股票代码为字符串（避免前导0丢失）
+#         df = pd.read_csv('bs_1/pre_results/shared_pool/all_metrics_summary.csv')
+#         df['Symbol'] = df['Symbol'].astype(str).str.zfill(6)  # 补全6位代码
         
-        # 处理请求中的代码（统一为6位字符串）
-        request_code = str(code).strip().zfill(6)
+#         # 处理请求中的代码（统一为6位字符串）
+#         request_code = str(code).strip().zfill(6)
         
-        # 查找匹配项
-        result = df[df['Symbol'] == request_code]
-        if result.empty:
-            return jsonify({"error": f"股票 {request_code} 不存在", "available_codes": df['Symbol'].head().tolist()}), 404
+#         # 查找匹配项
+#         result = df[df['Symbol'] == request_code]
+#         if result.empty:
+#             return jsonify({"error": f"股票 {request_code} 不存在", "available_codes": df['Symbol'].head().tolist()}), 404
             
-        return jsonify(result.iloc[0].to_dict())
+#         return jsonify(result.iloc[0].to_dict())
         
-    except FileNotFoundError:
-        return jsonify({"error": "指标文件路径错误"}), 404
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+#     except FileNotFoundError:
+#         return jsonify({"error": "指标文件路径错误"}), 404
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
 
 # 策略数据
 @app.route('/api/strategy')
