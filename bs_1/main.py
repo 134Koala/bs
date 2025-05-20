@@ -7,7 +7,7 @@ from data_processing import process_data
 from model import train_model
 from prediction import predict_stock
 from Trading_strategy import TradingStrategy
-
+# from no_attention_model import train_model
 def main():
     parser = argparse.ArgumentParser(description="量化投资系统")
     parser.add_argument("--symbol", help="指定单个股票代码运行")
@@ -30,7 +30,7 @@ def main():
             print(f"正在处理 {symbol}...")
             try:
                 process_data(symbol)
-                # train_model(symbol)
+                train_model(symbol)
             except Exception as e:
                 print(f"处理 {symbol} 失败: {e}")
                 skipped_stocks.append(symbol)

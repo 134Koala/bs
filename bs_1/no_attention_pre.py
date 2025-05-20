@@ -48,7 +48,7 @@ def plot_results(dates, true, pred, symbol):
     
     # 保存图像
     os.makedirs(f"bs_1/pre_results/{symbol}/plots", exist_ok=True)
-    plt.savefig(f"bs_1/pre_results/{symbol}/plots/prediction_plot.png", 
+    plt.savefig(f"bs_1/pre_results/{symbol}/plots/no_attention_prediction_plot.png", 
                 bbox_inches='tight')
     plt.close()
     
@@ -66,8 +66,8 @@ def predict_stock(symbol):
      # 加载包含目标变量的scaler
     full_scaler = np.load(f"{data_path}/scaler.npy", allow_pickle=True).item()    
     # 加载模型
-    model = load_model(f"bs_1/model/{symbol}_best.h5")
-
+    # model = load_model(f"bs_1/model/{symbol}_best.h5")
+    model = load_model(f"bs_1/model/{symbol}_no_attention_best.h5")
     # 生成预测
     predictions = model.predict(X_test)
     
@@ -100,9 +100,9 @@ def predict_stock(symbol):
     })
     
     # 保存预测结果和指标
-    result_df.to_csv(f"{result_dir}/predictions.csv", index=False)
+    result_df.to_csv(f"{result_dir}/no_attention_predictions.csv", index=False)
     
-    with open(f"{result_dir}/metrics.txt", 'w') as f:
+    with open(f"{result_dir}/no_attention_metrics.txt", 'w') as f:
         for key, value in metrics.items():
             f.write(f"{key}: {value}\n")
     
