@@ -33,6 +33,11 @@ def compute_features(df, mode='train'):
     # 量价比（成交量/收盘价）
     df['volume_price_ratio'] = df['成交量'] / (df['收盘'] + 1e-8)
 
+    # # 特征筛选
+    # final_features = ['日期', '开盘', '收盘', '最高', '最低', '成交量', 
+    #                  'MA5', 'MA10', 'volatility', 'RSI', 
+    #                  'MACD', 'volume_price_ratio']
+    
     # 添加沪深300特征
     hs300_data = hs300_train if mode == 'train' else hs300_test
     hs300_data = hs300_data[['日期', '收盘', '成交量', 'volatility']]
@@ -105,21 +110,13 @@ def process_data(symbol):
     # 创建序列数据集
     X_train, y_train, _ , _ = create_sequences(train_scaled)
     X_test, y_test ,test_dates, test_opens= create_sequences(test_scaled)
-
+    print(f"X_train shape: {X_train.shape}")  # 在保存前添加这行
     
-    # X_train, y_train = create_sequences(train_processed)
-    # X_test, y_test = create_sequences(test_processed)
+    # 检查样本量是否足够
+    if X_train.shape[0] < 100:  # 例如少于100个样本则跳过
+        print(f"⚠️ 股票 {symbol} 数据量不足（仅 {X_train.shape[0]} 样本），跳过处理")
+        return
 
-    # print(X_test.shape)
-    # print(y_test)
-
-    # # 数据标准化
-    # scaler = MinMaxScaler()
-    # scaler.fit(X_train.reshape(-1, X_train.shape[2]))
-
-
-
-    
     # 保存处理结果
     np.save(f"{process_dir}/test_dates.npy", test_dates)
     np.save(f"{process_dir}/test_opens.npy", test_opens)  # 新增保存开盘价
@@ -128,8 +125,15 @@ def process_data(symbol):
     np.save(f"{process_dir}/X_test.npy", X_test)
     np.save(f"{process_dir}/y_test.npy", y_test)
     np.save(f"{process_dir}/scaler.npy", full_scaler)
+
+    np.savez_compressed(
+    f"{process_dir}/metadata.npz",
+    feature_names=train_processed.columns[:-1],  # 排除日期列
+    target_name='收盘价')
+
 if __name__ =="__main__":
     symbols = [f.split(".")[0] for f in os.listdir("bs_1/stock_data")]
     for symbol in symbols:
+        # if symbol=="603677" or symbol=="688012":
         print(f"正在处理 {symbol}...")
         process_data(symbol)

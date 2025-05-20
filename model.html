@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+            <!-- 样式定义 -->
+            <style>
+                .title { font-family: Arial, sans-serif; font-size: 24px; font-weight: bold; text-anchor: middle; }
+                .subtitle { font-family: Arial, sans-serif; font-size: 18px; text-anchor: middle; }
+                .node { stroke-width: 2px; rx: 5; ry: 5; }
+                .node-text { font-family: Arial, sans-serif; font-size: 14px; text-anchor: middle; dominant-baseline: middle; }
+                .edge { fill: none; stroke-width: 2px; stroke-linecap: round; }
+                .edge-arrow { fill: #333; }
+                .legend-text { font-family: Arial, sans-serif; font-size: 14px; }
+            </style>
+            
+            <!-- 标题 -->
+            <text x="400" y="30" class="title">改进的GRU模型架构</text>
+            
+            <!-- 输入层 -->
+            <rect x="100" y="100" width="150" height="50" fill="#a8d5e5" stroke="#3a7ca5" class="node" />
+            <text x="175" y="125" class="node-text">输入层</text>
+            <text x="175" y="140" class="node-text">shape=input_shape</text>
+            
+            <!-- 双向GRU层 -->
+            <rect x="300" y="100" width="150" height="50" fill="#a8d5e5" stroke="#3a7ca5" class="node" />
+            <text x="375" y="125" class="node-text">双向GRU</text>
+            <text x="375" y="140" class="node-text">units=128</text>
+            
+            <!-- 注意力机制部分 -->
+            <text x="575" y="80" class="subtitle">注意力机制</text>
+            
+            <!-- Query和Key生成 -->
+            <rect x="500" y="100" width="100" height="40" fill="#ffd6cc" stroke="#e67e22" class="node" />
+            <text x="550" y="120" class="node-text">Query</text>
+            <text x="550" y="135" class="node-text">Dense(128)</text>
+            
+            <rect x="650" y="100" width="100" height="40" fill="#ffd6cc" stroke="#e67e22" class="node" />
+            <text x="700" y="120" class="node-text">Key</text>
+            <text x="700" y="135" class="node-text">Dense(128)</text>
+            
+            <!-- 注意力计算 -->
+            <rect x="500" y="160" width="100" height="40" fill="#ffd6cc" stroke="#e67e22" class="node" />
+            <text x="550" y="180" class="node-text">注意力计算</text>
+            <text x="550" y="195" class="node-text">Dot+Softmax</text>
+            
+            <!-- 上下文向量 -->
+            <rect x="650" y="160" width="100" height="40" fill="#ffd6cc" stroke="#e67e22" class="node" />
+            <text x="700" y="180" class="node-text">上下文向量</text>
+            <text x="700" y="195" class="node-text">Dot</text>
+            
+            <!-- 合并层 -->
+            <rect x="500" y="220" width="250" height="40" fill="#d1e7dd" stroke="#198754" class="node" />
+            <text x="625" y="240" class="node-text">连接层</text>
+            <text x="625" y="255" class="node-text">GRU输出与上下文</text>
+            
+            <!-- 卷积层 -->
+            <rect x="300" y="220" width="150" height="50" fill="#d1e7dd" stroke="#198754" class="node" />
+            <text x="375" y="245" class="node-text">Conv1D</text>
+            <text x="375" y="260" class="node-text">filters=64, kernel_size=3</text>
+            
+            <!-- 批归一化 -->
+            <rect x="100" y="220" width="150" height="40" fill="#d1e7dd" stroke="#198754" class="node" />
+            <text x="175" y="240" class="node-text">BatchNormalization</text>
+            
+            <!-- 输出层部分 -->
+            <text x="250" y="320" class="subtitle">输出层</text>
+            
+            <!-- Dense层1 -->
+            <rect x="100" y="340" width="150" height="40" fill="#f8d7da" stroke="#dc3545" class="node" />
+            <text x="175" y="360" class="node-text">Dense</text>
+            <text x="175" y="375" class="node-text">units=64, relu</text>
+            
+            <!-- Dropout -->
+            <rect x="300" y="340" width="150" height="40" fill="#f8d7da" stroke="#dc3545" class="node" />
+            <text x="375" y="360" class="node-text">Dropout</text>
+            <text x="375" y="375" class="node-text">rate=0.2</text>
+            
+            <!-- 最终输出 -->
+            <rect x="500" y="340" width="150" height="40" fill="#f8d7da" stroke="#dc3545" class="node" />
+            <text x="575" y="360" class="node-text">Dense</text>
+            <text x="575" y="375" class="node-text">units=1</text>
+            
+            <!-- 图例 -->
+            <rect x="650" y="450" width="100" height="30" fill="#a8d5e5" stroke="#3a7ca5" class="node" />
+            <text x="710" y="470" class="legend-text">序列处理</text>
+            
+            <rect x="650" y="490" width="100" height="30" fill="#ffd6cc" stroke="#e67e22" class="node" />
+            <text x="710" y="510" class="legend-text">注意力机制</text>
+            
+            <rect x="650" y="530" width="100" height="30" fill="#d1e7dd" stroke="#198754" class="node" />
+            <text x="710" y="550" class="legend-text">特征提取</text>
+            
+            <rect x="650" y="570" width="100" height="30" fill="#f8d7da" stroke="#dc3545" class="node" />
+            <text x="710" y="590" class="legend-text">输出层</text>
+            
+            <!-- 连接边 -->
+            <!-- 输入到双向GRU -->
+            <line x1="250" y1="125" x2="300" y2="125" class="edge" stroke="#333" />
+            <polygon points="290,122 300,125 290,128" class="edge-arrow" />
+            
+            <!-- 双向GRU到注意力机制 -->
+            <line x1="450" y1="125" x2="500" y2="120" class="edge" stroke="#333" />
+            <polygon points="490,118 500,120 490,122" class="edge-arrow" />
+            
+            <line x1="450" y1="125" x2="650" y2="120" class="edge" stroke="#333" />
+            <polygon points="640,118 650,120 640,122" class="edge-arrow" />
+            
+            <!-- Query和Key到注意力计算 -->
+            <line x1="550" y1="140" x2="550" y2="160" class="edge" stroke="#333" />
+            <polygon points="547,150 550,160 553,150" class="edge-arrow" />
+            
+            <line x1="700" y1="140" x2="700" y2="160" class="edge" stroke="#333" />
+            <polygon points="697,150 700,160 703,150" class="edge-arrow" />
+            
+            <!-- 注意力计算到上下文向量 -->
+            <line x1="600" y1="180" x2="650" y2="180" class="edge" stroke="#333" />
+            <polygon points="640,178 650,180 640,182" class="edge-arrow" />
+            
+            <!-- 注意力机制到合并层 -->
+            <line x1="550" y1="200" x2="550" y2="220" class="edge" stroke="#333" />
+            <polygon points="547,210 550,220 553,210" class="edge-arrow" />
+            
+            <line x1="700" y1="200" x2="700" y2="220" class="edge" stroke="#333" />
+            <polygon points="697,210 700,220 703,210" class="edge-arrow" />
+            
+            <!-- 合并层到卷积层 -->
+            <line x1="500" y1="240" x2="450" y2="245" class="edge" stroke="#333" />
+            <polygon points="440,243 450,245 440,247" class="edge-arrow" />
+            
+            <!-- 卷积层到批归一化 -->
+            <line x1="300" y1="245" x2="250" y2="240" class="edge" stroke="#333" />
+            <polygon points="240,238 250,240 240,242" class="edge-arrow" />
+            
+            <!-- 批归一化到输出层 -->
+            <line x1="175" y1="260" x2="175" y2="340" class="edge" stroke="#333" />
+            <polygon points="172,330 175,340 178,330" class="edge-arrow" />
+            
+            <!-- 输出层内部连接 -->
+            <line x1="250" y1="360" x2="300" y2="360" class="edge" stroke="#333" />
+            <polygon points="290,358 300,360 290,362" class="edge-arrow" />
+            
+            <line x1="450" y1="360" x2="500" y2="360" class="edge" stroke="#333" />
+            <polygon points="490,358 500,360 290,362" class="edge-arrow" />
+        </svg>
+    

@@ -33,7 +33,7 @@ def build_improved_model(input_shape):
     output = Dense(1)(output)
     
     model = Model(inputs=inputs, outputs=output)
-    model.compile(optimizer=Adam(learning_rate=0.001), 
+    model.compile(optimizer=Adam(learning_rate=0.00008), 
                  loss="mse",
                  metrics=[RootMeanSquaredError()])
     return model

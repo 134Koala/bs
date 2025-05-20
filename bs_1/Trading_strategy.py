@@ -120,10 +120,10 @@ class TradingStrategy:
     def backtest_strategy(self, df):
         """共享资金池的回测策略"""
         # 检查必要列是否存在
-        required_columns = ['code', 'signal', 'open', 'true_price', 'hold_days']
-        if not all(col in df.columns for col in required_columns):
-            missing = [col for col in required_cols if col not in df.columns]
-            raise ValueError(f"DataFrame缺少必要列: {missing}")
+        # required_columns = ['code', 'signal', 'open', 'true_price', 'hold_days']
+        # if not all(col in df.columns for col in required_columns):
+        #     missing = [col for col in required_cols if col not in df.columns]
+        #     raise ValueError(f"DataFrame缺少必要列: {missing}")
         
         # 添加波动率加权仓位分配
         df['position_weight'] = 1 / (1 + df['volatility'])
