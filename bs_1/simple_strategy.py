@@ -169,11 +169,16 @@ class SimpleStrategy:
         save_dir.mkdir(exist_ok=True)
         
         # 资金曲线
+        daily_total = df.groupby('date')['total'].first()
+        
         plt.figure(figsize=(14, 7))
-        df.groupby('date')['total'].first().plot(label='Strategy')
+        daily_total.plot(label='Strategy')
         plt.title(f'Strategy Performance (Final: {df["total"].iloc[-1]:.2f})')
         plt.savefig(save_dir/'performance.png')
         plt.close()
+        
+        # 保存每日总资产数据 (新增部分)
+        daily_total.to_csv(save_dir/'daily_totals.csv')
         
         # 交易记录
         trade_df = pd.DataFrame(self.trade_log)

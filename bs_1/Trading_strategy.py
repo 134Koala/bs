@@ -328,6 +328,13 @@ class TradingStrategy:
         plt.figure(figsize=(14, 7))
         plt.plot(daily_totals.index, daily_totals.values, label='Strategy')
         
+        # 添加简单策略曲线 (新增部分)
+        simple_path = self.base_path / 'simple_strategy' / 'daily_totals.csv'
+        if simple_path.exists():
+            simple_daily = pd.read_csv(simple_path, parse_dates=['date'], index_col='date')
+            plt.plot(simple_daily.index, simple_daily['total'], 
+                    label=f'Simple Strategy', linestyle='--')
+        
         # Calculate and plot benchmark
         grouped = df.groupby('code')
         benchmark = pd.DataFrame(index=df.index.unique().sort_values())
@@ -377,7 +384,7 @@ class TradingStrategy:
             
             # 绩效分析
             print("Analyzing performance...")
-            performance = self.analyze_performance(results,risk_free_rate=0.02)
+            performance = self.analyze_performance(results,risk_free_rate=0)
 
             # 将字典转换为DataFrame再保存
             performance_df = pd.DataFrame([performance])
