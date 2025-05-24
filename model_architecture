@@ -1,0 +1,47 @@
+// Improved Forecasting Model
+digraph {
+	graph [dpi=300 rankdir=LR splines=ortho]
+	node [fontname=Helvetica shape=record]
+	subgraph cluster_input {
+		color=lightgray style=filled
+		input [label="{Input Layer|(timesteps × features)}"]
+		label="Input Sequence"
+	}
+	subgraph cluster_features {
+		gru [label="{Bidirectional GRU|128 units|return_sequences=True}"]
+		conv [label="{1D Conv|64 filters|kernel=3|ReLU}"]
+		bn [label=BatchNorm]
+		label="Feature Extraction"
+	}
+	subgraph cluster_attention {
+		query [label="Dense(128)"]
+		key [label="Dense(128)"]
+		dot1 [label="Dot[axes=(2,2)]"]
+		softmax [label=Softmax]
+		context [label="Context Vector"]
+		color=blue label="Attention Mechanism"
+	}
+	subgraph cluster_output {
+		last_step [label="Last Timestep"]
+		dense1 [label="Dense(64)|ReLU"]
+		dropout [label="Dropout(0.2)"]
+		output [label="Output(1)"]
+		label="Prediction Head"
+	}
+	input -> gru
+	gru -> query
+	gru -> key
+	query -> dot1
+	key -> dot1
+	dot1 -> softmax
+	softmax -> context
+	gru -> conv
+	context -> conv
+	conv -> bn
+	bn -> last_step
+	last_step -> dense1
+	dense1 -> dropout
+	dropout -> output
+	gru -> conv [label="Residual
+Connection" style=dashed]
+}

@@ -11,7 +11,7 @@ def build_improved_model(input_shape):
     inputs = Input(shape=input_shape)
     
     # 双向GRU捕捉前后文信息
-    gru_out = Bidirectional(GRU(256, return_sequences=True))(inputs)
+    gru_out = Bidirectional(GRU(128, return_sequences=True))(inputs)
     
     # 改进的注意力机制
     query = Dense(128)(gru_out)
