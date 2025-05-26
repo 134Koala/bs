@@ -17,7 +17,7 @@ def stock_list():
         # 遍历目录获取股票代码和名称
         for dir_name in os.listdir(base_path):
             dir_path = os.path.join(base_path, dir_name)
-            if os.path.isdir(dir_path) and dir_name != 'shared_pool':
+            if os.path.isdir(dir_path) and dir_name != 'shared_pool' and dir_name!= 'simple_strategy':
                 # 假设目录名就是股票代码
                 code = dir_name
                 # 这里可以添加从文件或其他地方获取股票名称的逻辑
